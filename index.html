@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <title>iCalc Vault</title>
+    <style>
+        :root {
+            --ios-gray: #a5a5a5;
+            --ios-dark-gray: #333333;
+            --ios-orange: #ff9f0a;
+            --ios-light-gray: #f2f2f7;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, system-ui, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: black;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            touch-action: manipulation;
+        }
+
+        body.vault-open {
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        @media (min-width: 414px) and (min-height: 700px) {
+            .app-container {
+                max-width: 414px;
+                height: 736px;
+                border-radius: 20px;
+                overflow: hidden;
+            }
+        }
+
+        @media (max-height: 700px) {
+            .app-container {
+                height: 100vh;
+                border-radius: 0;
+            }
+        }
+
+        /* Calculator Screen */
+        .calculator-screen {
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            background-color: black;
+            transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .calculator-screen.hidden {
+            transform: translateY(-100%);
+        }
+
+        .display {
+            flex: 1;
+            max-height: 35%;
+            padding: 20px 10px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: flex-end;
+        }
+
+        @media (max-height: 700px) {
+            .display {
+                max-height: 30%;
+            }
+        }
+
+        .display-text {
+            font-size: 80px;
+            font-weight: 300;
+            color: white;
+            text-align: right;
+            width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1;
+        }
+
+        .buttons-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-top: auto;
+        }
+
+        @media (max-width: 350px) {
+            .buttons-grid {
+                gap: 8px;
+            }
+        }
+
+        .calc-btn {
+            border: none;
+            border-radius: 50%;
+            width: 100%;
+            min-width: 70px;
+            min-height: 70px;
+            aspect-ratio: 1;
+            font-size: 32px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.1s ease, opacity 0.1s ease;
+            user-select: none;
+            -webkit-user-select: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        @media (max-width: 350px) {
+            .calc-btn {
+                min-width: 60px;
+                min-height: 60px;
+                font-size: 24px;
+            }
+        }
+
+        .calc-btn:active {
+            transform: scale(0.95);
+        }
+
+        .calc-btn::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            border-radius: 50%;
+        }
+
+        .calc-btn:active::after {
+            opacity: 0.3;
+        }
+
+        .light-gray {
+            background-color: var(--ios-gray);
+            color: black;
+        }
+
+        .dark-gray {
+            background-color: var(--ios-dark-gray);
+        }
+
+        .orange {
+            background-color: var(--ios-orange);
+        }
+
+        .orange:active {
+            background-color: #ffb340;
+        }
+
+        .span-2 {
+            grid-column: span 2;
+            border-radius: 40px;
+            aspect-ratio: 2.2;
+            justify-content: flex-start;
+            padding-left: 30px;
+        }
+
+        /* Vault Screen */
+        .vault-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+            display: flex;
+            flex-direction: column;
+            background-color: black;
+        }
+
+        .vault-screen.visible {
+            transform: translateY(0);
+        }
+
+        .vault-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-top: 10px;
+        }
+
+        .vault-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .lock-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .lock-btn:active {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .files-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            overflow-y: auto;
+            padding: 5px;
+            padding-bottom: 80px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        @media (min-width: 500px) {
+            .files-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        .file-item {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .file-thumbnail {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .file-icon {
+            font-size: 28px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 24px;
+            height: 24px;
+            background: rgba(255, 59, 48, 0.9);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 16px;
+            color: white;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .file-item:hover .delete-btn {
+            opacity: 1;
+        }
+
+        .add-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--ios-orange);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 28px;
+            color: white;
+            cursor: pointer;
+            border: none;
+            z-index: 10;
+            transition: transform 0.2s ease;
+        }
+
+        .add-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Status bar for iOS */
+        .status-bar {
+            height: env(safe-area-inset-top);
+            background: black;
+            width: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 100;
+        }
+
+        /* Hidden file input */
+        #file-input {
+            display: none;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(40, 40, 40, 0.9);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 20px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        /* Empty state */
+        .empty-state {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .empty-icon {
+            font-size: 50px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="status-bar"></div>
+    <div class="app-container">
+        <!-- Calculator Screen -->
+        <div class="calculator-screen" id="calculatorScreen">
+            <div class="display">
+                <div class="display-text" id="display">0</div>
+            </div>
+            <div class="buttons-grid">
+                <button class="calc-btn light-gray" onclick="clearAll()">AC</button>
+                <button class="calc-btn light-gray" onclick="toggleSign()">+/-</button>
+                <button class="calc-btn light-gray" onclick="appendOperator('%')">%</button>
+                <button class="calc-btn orange" onclick="appendOperator('/')">÷</button>
+                <button class="calc-btn dark-gray" onclick="appendNumber('7')">7</button>
+                <button class="calc-btn dark-gray" onclick="appendNumber('8')">8</button>
+                <button class="calc-btn dark-gray" onclick="appendNumber('9')">9</button>
+                <button class="calc-btn orange" onclick="appendOperator('*')">×</button>
+                <button class="calc-btn dark-gray" onclick="appendNumber('4')">4</button>
+                <button class="calc-btn dark-gray" onclick="appendNumber('5')">5</button>
+                <button class="calc-btn dark-gray" onclick="appendNumber('6')">6</button>
+                <button class="calc-btn orange" onclick="appendOperator('-')">-</button>
+                <button class="calc-btn dark-gray" onclick="appendNumber('1')">1</button>
+                <button class="calc-btn dark-gray" onclick="appendNumber('2')">2</button>
+                <button class="calc-btn dark-gray" onclick="appendNumber('3')">3</button>
+                <button class="calc-btn orange" onclick="appendOperator('+')">+</button>
+                <button class="calc-btn dark-gray span-2" onclick="appendNumber('0')">0</button>
+                <button class="calc-btn dark-gray" onclick="appendDecimal()">.</button>
+                <button class="calc-btn orange" onclick="calculate()">=</button>
+                <button class="calc-btn dark-gray" onclick="appendNumber('#')">#</button>
+                <button class="calc-btn dark-gray" onclick="backspace()">⌫</button>
+            </div>
+        </div>
+
+        <!-- Vault Screen -->
+        <div class="vault-screen" id="vaultScreen">
+            <div class="vault-header">
+                <div class="vault-title">Private Vault</div>
+                <button class="lock-btn" onclick="lockVault()">Lock Vault</button>
+            </div>
+            <div class="files-grid" id="filesGrid">
+                <div class="empty-state">
+                    <div class="empty-icon">🔒</div>
+                    <div>No files in vault</div>
+                    <div style="margin-top: 8px; font-size: 13px;">Add files by tapping +</div>
+                </div>
+            </div>
+            <button class="add-btn" onclick="document.getElementById('file-input').click()">+</button>
+            <input type="file" id="file-input" multiple onchange="handleFileSelect(event)">
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // App State
+        const state = {
+            currentInput: '0',
+            previousInput: null,
+            operation: null,
+            resetInput: false,
+            secretCode: '1984#',
+            files: [],
+            vaultUnlocked: false
+        };
+
+        // DOM Elements
+        const calculatorScreen = document.getElementById('calculatorScreen');
+        const vaultScreen = document.getElementById('vaultScreen');
+        const display = document.getElementById('display');
+        const filesGrid = document.getElementById('filesGrid');
+        const fileInput = document.getElementById('file-input');
+        const toast = document.getElementById('toast');
+
+        // Initialize the app
+        function init() {
+            loadFiles();
+            renderFiles();
+            setupTouchEvents();
+            setupKeyboardAvoidance();
+            setupMobileEvents();
+            
+            // Handle orientation changes
+            window.addEventListener('orientationchange', () => {
+                setTimeout(() => {
+                    if (state.vaultUnlocked) {
+                        vaultScreen.scrollIntoView({ behavior: 'auto' });
+                    }
+                }, 300);
+            });
+        }
+
+        // Setup touch events for better mobile interaction
+        function setupTouchEvents() {
+            const buttons = document.querySelectorAll('.calc-btn');
+            buttons.forEach(button => {
+                button.addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                    this.classList.add('active');
+                });
+                
+                button.addEventListener('touchend', function(e) {
+                    e.preventDefault();
+                    this.classList.remove('active');
+                });
+                
+                button.addEventListener('touchcancel', function(e) {
+                    e.preventDefault();
+                    this.classList.remove('active');
+                });
+            });
+        }
+
+        // Setup mobile-friendly events
+        function setupMobileEvents() {
+            const buttons = document.querySelectorAll('.calc-btn, .file-item, .add-btn');
+            
+            buttons.forEach(button => {
+                // Prevent ghost clicks
+                button.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    button.classList.add('active');
+                });
+                
+                button.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    button.classList.remove('active');
+                    button.click(); // Trigger the original click handler
+                });
+            });
+        }
+
+        // Keyboard avoidance for mobile
+        function setupKeyboardAvoidance() {
+            const inputs = document.querySelectorAll('input[type="text"], input[type="number"]');
+            inputs.forEach(input => {
+                input.addEventListener('focus', () => {
+                    setTimeout(() => {
+                        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 300);
+                });
+            });
+            
+            window.addEventListener('resize', () => {
+                if (document.activeElement.tagName === 'INPUT') {
+                    document.activeElement.scrollIntoView({ block: 'center' });
+                }
+            });
+        }
+
+        // Show toast notification
+        function showToast(message, duration = 2000) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            
+            if (duration > 0) {
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, duration);
+            }
+            
+            return toast;
+        }
+
+        // Calculator Functions
+        function appendNumber(number) {
+            if (state.currentInput === '0' || state.resetInput) {
+                state.currentInput = number;
+                state.resetInput = false;
+            } else {
+                state.currentInput += number;
+            }
+            
+            // Check for secret code
+            if (state.currentInput.includes(state.secretCode) {
+                unlockVault();
+                return;
+            }
+            
+            updateDisplay();
+        }
+
+        function appendDecimal() {
+            if (state.resetInput) {
+                state.currentInput = '0.';
+                state.resetInput = false;
+                updateDisplay();
+                return;
+            }
+            
+            if (!state.currentInput.includes('.')) {
+                state.currentInput += '.';
+                updateDisplay();
+            }
+        }
+
+        function appendOperator(operator) {
+            if (state.operation && !state.resetInput) {
+                calculate();
+            }
+            
+            state.previousInput = state.currentInput;
+            state.operation = operator;
+            state.resetInput = true;
+        }
+
+        function calculate() {
+            if (!state.operation || state.resetInput) return;
+            
+            let result;
+            const prev = parseFloat(state.previousInput);
+            const current = parseFloat(state.currentInput);
+            
+            switch (state.operation) {
+                case '+':
+                    result = prev + current;
+                    break;
+                case '-':
+                    result = prev - current;
+                    break;
+                case '*':
+                    result = prev * current;
+                    break;
+                case '/':
+                    result = prev / current;
+                    break;
+                case '%':
+                    result = prev % current;
+                    break;
+                default:
+                    return;
+            }
+            
+            state.currentInput = result.toString();
+            state.operation = null;
+            state.resetInput = true;
+            updateDisplay();
+        }
+
+        function clearAll() {
+            state.currentInput = '0';
+            state.previousInput = null;
+            state.operation = null;
+            state.resetInput = false;
+            updateDisplay();
+        }
+
+        function toggleSign() {
+            state.currentInput = (parseFloat(state.currentInput) * -1).toString();
+            updateDisplay();
+        }
+
+        function backspace() {
+            if (state.currentInput.length === 1 || 
+                (state.currentInput.length === 2 && state.currentInput.startsWith('-'))) {
+                state.currentInput = '0';
+            } else {
+                state.currentInput = state.currentInput.slice(0, -1);
+            }
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            let displayValue = state.currentInput;
+            if (displayValue.length > 10) {
+                if (displayValue.includes('.')) {
+                    displayValue = parseFloat(displayValue).toFixed(8);
+                } else {
+                    displayValue = parseFloat(displayValue).toExponential(4);
+                }
+            }
+            
+            display.textContent = displayValue;
+        }
+
+        // Vault Functions
+        function unlockVault() {
+            state.vaultUnlocked = true;
+            document.body.classList.add('vault-open');
+            calculatorScreen.classList.add('hidden');
+            vaultScreen.classList.add('visible');
+            clearAll();
+            showToast('Vault Unlocked');
+        }
+
+        function lockVault() {
+            state.vaultUnlocked = false;
+            document.body.classList.remove('vault-open');
+            calculatorScreen.classList.remove('hidden');
+            vaultScreen.classList.remove('visible');
+            clearAll();
+            showToast('Vault Locked');
+        }
+
+        function loadFiles() {
+            const savedFiles = localStorage.getItem('vaultFiles');
+            if (savedFiles) {
+                try {
+                    state.files = JSON.parse(savedFiles);
+                } catch (e) {
+                    state.files = [];
+                    localStorage.removeItem('vaultFiles');
+                }
+            }
+        }
+
+        function saveFiles() {
+            localStorage.setItem('vaultFiles', JSON.stringify(state.files));
+        }
+
+        function renderFiles() {
+            if (state.files.length === 0) {
+                filesGrid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🔒</div>
+                        <div>No files in vault</div>
+                        <div style="margin-top: 8px; font-size: 13px;">Add files by tapping +</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            filesGrid.innerHTML = '';
+            state.files.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                
+                if (file.type && file.type.startsWith('image/') && file.dataUrl) {
+                    fileItem.innerHTML = `
+                        <img src="${file.dataUrl}" class="file-thumbnail" alt="File thumbnail">
+                        <div class="delete-btn" onclick="removeFile(${index})">×</div>
+                    `;
+                } else {
+                    const fileName = file.name || 'File';
+                    const fileExt = fileName.split('.').pop().toUpperCase();
+                    fileItem.innerHTML = `
+                        <div class="file-icon">📄</div>
+                        <div class="delete-btn" onclick="removeFile(${index})">×</div>
+                        <div style="position: absolute; bottom: 5px; font-size: 11px; width: 100%; text-align: center; padding: 0 5px;">${fileExt}</div>
+                    `;
+                }
+                
+                filesGrid.appendChild(fileItem);
+            });
+        }
+
+        function handleFileSelect(event) {
+            const files = Array.from(event.target.files);
+            if (files.length === 0) return;
+            
+            // Show loading indicator
+            const toast = showToast('Processing files...', 0);
+            
+            // Process files sequentially to avoid memory issues
+            processFiles(files, 0, () => {
+                toast.classList.remove('show');
+                showToast(`${files.length} file(s) added`);
+            });
+            
+            event.target.value = '';
+        }
+
+        function processFiles(files, index, callback) {
+            if (index >= files.length) {
+                callback();
+                return;
+            }
+            
+            const file = files[index];
+            const maxFiles = 50;
+            
+            if (state.files.length >= maxFiles) {
+                showToast(`Maximum ${maxFiles} files allowed`);
+                callback();
+                return;
+            }
+            
+            // Mobile-friendly file size check (5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                showToast(`Skipped large file: ${file.name}`);
+                processFiles(files, index + 1, callback);
+                return;
+            }
+            
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                state.files.push({
+                    name: file.name,
+                    type: file.type,
+                    size: file.size,
+                    lastModified: file.lastModified,
+                    dataUrl: file.type.startsWith('image/') ? e.target.result : null
+                });
+                
+                saveFiles();
+                renderFiles();
+                processFiles(files, index + 1, callback);
+            };
+            
+            reader.onerror = () => {
+                showToast(`Error reading: ${file.name}`);
+                processFiles(files, index + 1, callback);
+            };
+            
+            if (file.type.startsWith('image/')) {
+                reader.readAsDataURL(file);
+            } else {
+                // For non-image files, store metadata only
+                state.files.push({
+                    name: file.name,
+                    type: file.type,
+                    size: file.size,
+                    lastModified: file.lastModified,
+                    dataUrl: null
+                });
+                saveFiles();
+                renderFiles();
+                processFiles(files, index + 1, callback);
+            }
+        }
+
+        function removeFile(index) {
+            if (confirm('Delete this file from vault?')) {
+                state.files.splice(index, 1);
+                saveFiles();
+                renderFiles();
+                showToast('File deleted');
+            }
+        }
+
+        // Prevent zooming on double-tap
+        document.addEventListener('dblclick', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
